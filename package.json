@@ -1,0 +1,10 @@
+{
+  "name": "radar-racionamiento",
+  "version": "1.0.0",
+  "description": "Radar de cortes de luz en tiempo real",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

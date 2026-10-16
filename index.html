@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Radar de Racionamiento - Los Hornos</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #d9534f; margin-bottom: 5px; }
+        p { color: #666; font-size: 14px; }
+        .form-group { margin: 15px 0; text-align: left; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
+        button { width: 100%; background: #d9534f; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #c9302c; }
+        
+        #bannerAlerta { display: none; background: #ffebee; border: 2px solid #d9534f; color: #c62828; padding: 15px; border-radius: 8px; margin-bottom: 20px; animation: parpadear 1s infinite alternate; }
+        @keyframes parpadear { from { opacity: 1; } to { opacity: 0.6; } }
+
+        .historial { margin-top: 30px; text-align: left; }
+        .item-corte { background: #fff3f3; border-left: 4px solid #d9534f; padding: 10px 15px; margin-bottom: 10px; border-radius: 4px; }
+        .item-corte h4 { margin: 0 0 5px 0; color: #333; }
+        .item-corte p { margin: 2px 0; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="bannerAlerta">
+        <h3 style="margin:0 0 5px 0;">🚨 ¡NUEVO CORTE REPORTADO!</h3>
+        <p id="textoAlerta" style="margin:0; font-weight: bold; color: #d9534f;"></p>
+    </div>
+
+    <h2>⚡ Radar Eléctrico Los Hornos</h2>
+    <p>Monitoreo comunitario en tiempo real</p>
+
+    <div class="form-group">
+        <label>Hora del corte:</label>
+        <input type="time" id="horaCorte">
+    </div>
+
+    <div class="form-group">
+        <label>Tu Nombre / Sector:</label>
+        <input type="text" id="vecino" placeholder="Ej: Ángel - Sector 2">
+    </div>
+
+    <div class="form-group">
+        <label>Observación:</label>
+        <input type="text" id="comentario" placeholder="Ej: Se fue sin previo aviso">
+    </div>
+
+    <button onclick="enviarReporteEnVivo()">📡 Emitir Alerta de Corte</button>
+
+    <div class="historial">
+        <h3>📋 Historial de Racionamientos</h3>
+        <div id="listaReportes">Cargando reportes...</div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+
+    const ahora = new Date();
+    document.getElementById('horaCorte').value = ahora.toTimeString().substring(0, 5);
+
+    socket.on('alerta-global', (item) => {
+        const banner = document.getElementById('bannerAlerta');
+        document.getElementById('textoAlerta').innerText = `A las ${item.horaCorte} (${item.vecino}): ${item.comentario}`;
+        banner.style.display = 'block';
+        agregarAlHistorialVisual(item);
+    });
+
+    function cargarHistorialInicial() {
+        fetch('/racionamientos')
+            .then(res => res.json())
+            .then(data => {
+                const contenedor = document.getElementById('listaReportes');
+                if (data.registro.length === 0) {
+                    contenedor.innerHTML = '<p>No hay cortes reportados el día de hoy.</p>';
+                    return;
+                }
+                contenedor.innerHTML = '';
+                data.registro.forEach(item => agregarAlHistorialVisual(item, false));
+            });
+    }
+
+    function agregarAlHistorialVisual(item, alPrincipio = true) {
+        const contenedor = document.getElementById('listaReportes');
+        if (contenedor.innerHTML.includes('No hay cortes')) {
+            contenedor.innerHTML = '';
+        }
+        
+        const htmlItem = `
+            <div class="item-corte">
+                <h4>⏱️ Hora del Corte: ${item.horaCorte}</h4>
+                <p><strong>Reportado por:</strong> ${item.vecino}</p>
+                <p><strong>Nota:</strong> ${item.comentario}</p>
+                <p style="font-size: 11px; color: #888;">Fecha: ${item.fecha}</p>
+            </div>
+        `;
+
+        if (alPrincipio) {
+            contenedor.innerHTML = htmlItem + contenedor.innerHTML;
+        } else {
+            contenedor.innerHTML += htmlItem;
+        }
+    }
+
+    function enviarReporteEnVivo() {
+        const horaCorte = document.getElementById('horaCorte').value;
+        const vecino = document.getElementById('vecino').value;
+        const comentario = document.getElementById('comentario').value;
+
+        if (!horaCorte) {
+            alert('Por favor selecciona la hora del corte.');
+            return;
+        }
+
+        socket.emit('nuevo-reporte', { vecino, horaCorte, comentario });
+        document.getElementById('comentario').value = '';
+    }
+
+    cargarHistorialInicial();
+</script>
+</body>
+</html>
